@@ -1,0 +1,196 @@
+"gjf2vasp"
+#!/bin/python
+# -*- coding: utf-8 -*-
+import sys, math, os
+import numpy
+from numpy import cos, sin, sqrt
+class read_write(object):
+    """ class to read and write something """
+    def __init__(self, fin, fout):        
+        mol,mol_tv = self.read_gjf(fin)
+        self.write_vasp(mol,mol_tv)
+    def write_vasp(self,xyz,tv):
+        atps = self.get_atomtype(xyz)
+        atp_n = []
+        for atp in atps:
+            ia = 0
+            for i in xyz:
+                if atp == i[0]:
+                    ia += 1
+            atp_n.append(ia)
+        natp = len(atps)
+        f = open('POSCAR', 'w')
+        for i in range(natp):
+            f.write('%5s'%atps[i])
+        f.write('\n')
+        f.write('%19.15f\n'%(1.0))
+        f.write('%25.15f%25.15f%25.15f\n'%(float(tv[0][1]),float(tv[0][2]),float(tv[0][3])))
+        f.write('%25.15f%25.15f%25.15f\n'%(float(tv[1][1]),float(tv[1][2]),float(tv[1][3])))
+        f.write('%25.15f%25.15f%25.15f\n'%(float(tv[2][1]),float(tv[2][2]),float(tv[2][3]))) 
+        for i in range(natp):
+            f.write('%5s'%atps[i])
+        f.write('\n')
+        for i in range(natp):
+            f.write('%5i'%atp_n[i])
+        f.write('\n')
+        f.write('Selective dynamics\n')
+        f.write('Cartesian\n')
+        na = len(xyz)
+        for atp in atps:
+            for i in range(na):
+                if atp == xyz[i][0]:
+                    if len(xyz[i])==5:
+                        f.write('%21.16f'%xyz[i][2])
+                        f.write('%21.16f'%xyz[i][3])
+                        f.write('%21.16f'%xyz[i][4])
+                        if int(xyz[i][1]) == 0:
+                            f.write('%3s'%('T'))
+                            f.write('%3s'%('T'))
+                            f.write('%3s\n'%('T'))
+                        else:
+                            f.write('%3s'%('F'))
+                            f.write('%3s'%('F'))
+                            f.write('%3s\n'%('F'))
+                    if len(xyz[i])==4:
+                        f.write('%21.16f'%xyz[i][1])
+                        f.write('%21.16f'%xyz[i][2])
+                        f.write('%21.16f'%xyz[i][3])
+                        f.write('%3s'%('T'))
+                        f.write('%3s'%('T'))
+                        f.write('%3s\n'%('T'))
+        f.close()
+        f = open('INCAR','w')
+        f.write('#Electronic Minimization\n')
+        f.write(' SYSTEM = VASP-OPT\n')
+        f.write(' SIGMA = 0.1     # 0.05 for semiconductors and insulators; 0.2 for metals\n')
+        f.write(' #SYMPREC = 1E-8     # accuracy the positions in the POSCAR\n\n')
+        f.write('#Electronic Minimization-Charge Density\n')
+        f.write(' ICHARG = 2     # 1 from CHGCAR; 2 from atomic charge densities\n')
+        f.write(' #LCHARG = .FALSE.\n\n')
+        f.write('#Electronic Minimization-Density of States\n')
+        f.write(' LORBIT=11     # write DOSCAR and Im-decomposed PROCAR\n\n')
+        f.write('#Electronic Minimization-Electronic Minimization Methods\n')
+        f.write(' ENCUT = 450     # cutoff energy for planewave basis set\n')
+        f.write(' ISTART = 0     # 0 for no WAVECAR; 1 for WAVECAR exists\n')
+        f.write(' ISMEAR = 0     # -5 for semiconductors and insulators;'
+                    '0 for large semiconductors and insulators; 1 for metals\n')
+        f.write(' ALGO = Fast     # mixture of Davidson and RMM-DIIS algorithms\n')
+        f.write(' #IALGO = 48     # 38 for Normal; 48 for VeryFast\n')
+        f.write(' PREC = Normal\n')
+        f.write(' EDIFF = 1E-5      # EDIFF/EDIFFG = 1E-3/-0.3; 1E-4/-0.05; 1E-5/-0.02\n')
+        f.write(' NELMIN = 4     # minimum number of electronic SCF steps\n')
+        f.write(' ISPIN = 1    # 1 for non spin polarized; 2 for spin polarized\n')
+        f.write(' #ISYM = 0     # does not use symmetry\n')
+        f.write(' #NGX = 40\n')
+        f.write(' #NGY = 40\n')
+        f.write(' #NGZ = 40\n\n')
+        f.write('#Electronic Minimization-PAW\n')
+        f.write(' LREAL = Auto\n')
+        f.write(' #LWAVE = .FALSE.\n')
+        f.write(' #LMAXMIX = 6     # 4 for d elements and 6 for f elements\n\n\n')
+        f.write('#Structural Optimization-Ionic Minimization Methods\n')
+        f.write(' NSW = 500     # maximum number of ionic steps\n')
+        f.write(' IBRION = 2     # conjugate gradient algorithm\n')
+        f.write(' EDIFFG = -0.08     # break condition for ionic relaxation loop\n')
+        f.write(' ISIF = 2     # 2 for not relax volume and shape;'
+                   '3 for relax volume and shape\n\n\n')
+        f.write('#Magnetism\n')
+        f.write(' #MAGMOM = 6*-4.0 12*4.0 n*0\n')
+        f.write(' #NUPDOWN = 1\n\n')
+        f.write('#Magnetism-Noncollinear Magnetism\n')
+        f.write(' #LNONCOLLINEAR = .TRUE.\n')
+        f.write(' #LSORBIT = .TRUE.\n')
+        f.write(' #SAXIS\n\n\n')
+        f.write('#XC Functionals-GGA\n')
+        f.write(' #GGA_COMPAT = .FALSE.\n\n')
+        f.write('#XC Functionals-LSDA+U\n')
+        f.write(' #LDAU = .TRUE.\n')
+        f.write(' #LDAUTYPE = 2\n')
+        f.write(' #LDAUL = 2 -1 -1\n')
+        f.write(' #LDAUU = 4.7 0.0 0.0\n')
+        f.write(' #LDAUJ = 0.9 0.0 0.0\n\n')
+        f.write('#XC Functionals-Van der Waals\n')
+        f.write(' IVDW = 12     # 12 for DFT-D3BJ\n\n\n')
+        f.write('#Performance-Parallelization\n')
+        f.write(' NPAR = 8     # number of bands in parallel\n')
+        f.write(' #LPLANE = .TRUE.\n')
+        f.write(' #LSCALU = .FALSE.\n')
+        f.write(' #NSIM = 4\n\n\n\n\n\n')
+        f.close()
+        f = open('KPOINTS','w')
+        f.write('Automatic generation\n')
+        f.write('0\n')
+        f.write('Monhkorst-Pack\n')
+        f.write('3  3  1\n')
+        f.write('0.0 0.0 0.0\n\n\n\n')
+        f.close()
+        cmd = 'cat '
+        path = '/work/home/nano004/PROG/Potential-VASP/potpaw_PBE/'
+        for atp in atps:
+            cmd = cmd + path + atp + '/POTCAR '
+        cmd = cmd + '> POTCAR'
+        os.system(cmd)
+    def read_gjf(self,fname):
+        f = open(fname,'r')
+        xyz = []
+        tv  = []
+        Goon = True
+        while Goon:
+            line = f.readline()
+            if line.strip() == '':
+                Goon = False
+        Goon = True
+        while Goon:
+            line = f.readline()
+            if line.strip() == '':
+                Goon = False
+        f.readline()
+        Goon = True
+        while Goon:
+            line = f.readline()
+            if line.strip() == '':
+                Goon = False
+            else:
+                line = line.strip().split()
+                if len(line)==4:
+                    atom = (line[0],float(line[1]),float(line[2]),float(line[3]))
+                else: # to determine a atom is frozen or not
+                    atom = (line[0],float(line[1]),float(line[2]),float(line[3]),float(line[4]))
+                if line[0] == 'TV' or line[0] == 'Tv' or line[0] == 'tV' or line[0] == 'tv':
+                    tv.append(atom)
+                else:
+                    xyz.append(atom)                
+        return xyz, tv
+    def get_atomtype(self,xyz):
+        atps = []
+        for i in xyz:
+            new = i[0]
+            if new not in atps:
+                atps.append(new)
+        return atps      
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        print('The allowed usage is: gjf2vasp filename.gjf jobtype')
+        sys.exit(1)
+    fin = sys.argv[1]
+    fout = fin.split('.')[0]    
+    fout = fout.split('/')
+    n = len(fout)
+    fout = fout[n-1]
+    job_type = sys.argv[2]
+    print(job_type)
+    if job_type == str(3):
+        command_vasp = 'subvasp_3w '
+    elif job_type == str(1):
+        command_vasp = 'subvasp '
+    else:
+        command_vasp = 'ls '
+    rw = read_write(fin,fout)
+    if os.path.exists('./'+fout):
+        os.system('mv ' + fin + ' ./' + fout)
+        os.system('mv INCAR POSCAR KPOINTS POTCAR ./' + fout)
+    else:
+        os.system('mkdir ' + fout)
+        os.system('mv ' + fin + ' ./' + fout)
+        os.system('mv INCAR POSCAR KPOINTS POTCAR ./' + fout)
+    os.system('grep \'F  \' ' + fout + '/POSCAR >' + fout + '.txt')
