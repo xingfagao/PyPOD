@@ -11,7 +11,7 @@ from pymatgen.core.structure import Structure, Molecule
 import glob, os
 import numpy as np
 from pymatgen.ext.matproj import MPRester
-USER_API_KEY="YOU_API_KEY"
+USER_API_KEY="JBkm9BAbwqy33jXXfIsRhz8C0R2v9gkI"
 def my_write_gjf(fname, atoms, adsorbate, ads_struc):
     atom_z = []
     for site_i in range(len(ads_struc)-len(adsorbate)):
