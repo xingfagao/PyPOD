@@ -2,7 +2,7 @@
 import os.path,os
 from pymatgen.io.cif import CifWriter
 from mp_api.client import MPRester
-USER_API_KEY="YOUR-API-KEY" 
+USER_API_KEY="JBkm9BAbwqy33jXXfIsRhz8C0R2v9gkI" 
 elements_list = ["Au", "Cu"]
 with MPRester(api_key=USER_API_KEY) as m:
     results_a = []
